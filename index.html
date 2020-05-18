@@ -1,1 +1,673 @@
-<h1>Hello!</h1>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Gtech734 Lab 4</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Load the leaflet library-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
+    <script src='https://labs.easyblog.it/maps/leaflet-search/src/leaflet-search.js'></script>
+    <link href='https://labs.easyblog.it/maps/leaflet-search/src/leaflet-search.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
+    <link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css'
+        rel='stylesheet' />
+    <script src='https://unpkg.com/@turf/turf/turf.min.js'></script>
+    <script type="text/javascript" src="nycZips.js"></script>
+    <script type="text/javascript" src="nyclibraries.js"></script>
+    <script type="text/javascript" src="nycbus.js"></script>
+    <script type="text/javascript" src="nycgrocerystores.js"></script>
+    <script type="text/javascript" src="nychospitals.js"></script>
+    <script type="text/javascript" src="nycsubways.js"></script>
+
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+            
+        #map {
+            width: 100%;
+            /*600px;*/
+            height: 80%;
+            /*400px;*/
+        }
+
+        #footer {
+            position: absolute;
+            left: 0%;
+            top: 80%;
+            bottom: 0%;
+            width: 100%;
+            z-index: 2000;
+            background-color: rgba(8, 8, 8, 0.897)
+        }
+        
+    </style>
+
+
+      <meta charset="utf-8">
+      <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap-theme.min.css">
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script src="https://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>
+      <script type="text/javascript"> 
+        //Call the method on pageload
+        $(window).load(function(){
+          //Disply the modal popup
+            $('#myModal').modal('show');
+        });
+      </script>
+
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title" id="myModalLabel">Select Resources</h4>
+                </div>
+                <div class="modal-body">
+                    Select resources to find zip codes in New York City that contain all of your selected resources.  Click 'Find Zip Codes' to get the number of zipcodes with the given resources. Close the window to highlight the zipcodes and return to the map.
+                </div>
+                <form class="modal-body">
+                    <input type="checkbox" id="hospital" name="hospital" value="hospital">
+                    <label for="hospital"> Hospital</label><br>
+                    <input type="checkbox" id="SubwayStation" name="SubwayStation" value="SubwayStation">
+                    <label for="SubwayStation"> Subway Station</label><br>
+                    <input type="checkbox" id="BusStop" name="BusStop" value="BusStop">
+                    <label for="BusStop"> Bus Stop</label><br>
+                    <input type="checkbox" id="library" name="library" value="library">
+                    <label for="library"> Library</label><br>
+                    <input type="checkbox" id="GroceryStore" name="GroceryStore" value="GroceryStore">
+                    <label for="GroceryStore"> Grocery Store</label><br><br>
+                  </form>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button onclick="displayChoices()" type="button" class="btn btn-primary">Find Zipcodes</button>
+                </div>
+                <p id="response"></p>
+                <p id="hosp"></p>
+                <p id="sub"></p>
+                <p id="bus"></p>
+                <p id="lib"></p>
+                <p id="groc"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="footer">
+    <p style="font-size:140%; color:white; ">GTECH 734 Final Project - Resource Locator</p>
+    <button type="button" data-toggle="modal" data-target="#myModal">Open Resource Selection Tool Again</button>
+    <p style="font-size:80%; color:white; ">How to use this map: Open the resource selection tool. Once you click 'Find Zipcodes' the map will display all of the zipcodes <br>that contain at least one instance of each resource you selected. Search or click a zipcode to see which resources it contains.<br>Use the layer tool for more visualizations and to plan your search.</p>
+    <p style="font-size:60%; color:white; ">Holly Josephs</p>
+</div>
+
+
+
+</body>
+
+
+<script>
+
+    // create a variable to hold the map element         
+    // add the open street map tile layer to map element         
+    var streets   = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }),
+		grayscale  = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+            maxZoom: 12,
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
+                '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+                'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+            id: 'mapbox/light-v9',
+            tileSize: 512,
+            zoomOffset: -1
+        });
+
+	var map = L.map('map', {
+        fullscreenControl: true,
+		center: [40.68, -73.8],
+		zoom: 10,
+		layers: [grayscale, streets]
+    });
+
+    function onEachFeature(feature, layer) {
+            var popupContent = "</br> Zip Code: " + feature.properties.postalCode+
+                "</br> Borough: " + feature.properties.borough;
+
+            if (feature.properties && feature.properties.popupContent) {
+                popupContent += feature.properties.popupContent;
+            }
+
+            layer.bindPopup(popupContent);         
+            layer.on({
+                click: function (e) {
+                    boroughs.setStyle({fillColor: "red", color: 'black', weight:0.85, onEachFeature: onEachFeature});
+                    finalZipsLayer.setStyle({"fillColor": "yellow", "fillOpacity": 0.8, weight: 3,opacity: 1, color: '#357EC7'});
+                    e.target.setStyle({ fillColor: '#3f0', color: '#0f0' });
+                    if (e.target._popup)
+                        e.target.openPopup();
+                    var polyCoords = e.target.feature.geometry.coordinates;
+                    
+                    var grocpts = turf.points(grocPoints);
+                    var libpts = turf.points(libPoints);
+                    var buspts = turf.points(busPoints);
+                    var subpts = turf.points(subPoints);
+                    var hosppts = turf.points(hospPoints);
+                    
+                    
+                    var searchWithin = turf.polygon(polyCoords);
+                    var ptsWithinGroc = turf.pointsWithinPolygon(grocpts, searchWithin);
+                    var ptsWithinLib = turf.pointsWithinPolygon(libpts, searchWithin);
+                    var ptsWithinBus = turf.pointsWithinPolygon(buspts, searchWithin);
+                    var ptsWithinSub = turf.pointsWithinPolygon(subpts, searchWithin);
+                    var ptsWithinHosp = turf.pointsWithinPolygon(hosppts, searchWithin);
+
+                    var resourcesInZip = ['','','','',''];
+
+                    if(ptsWithinGroc.features.length>0){
+                        resourcesInZip[0]='Grocery Store, ';
+                    }
+                    if(ptsWithinLib.features.length>0){
+                        resourcesInZip[1]='Library, ';
+                    }
+                    if(ptsWithinBus.features.length>0){
+                        resourcesInZip[2]='Bus Stop, ';
+                    }
+                    if(ptsWithinSub.features.length>0){
+                        resourcesInZip[3]='Subway Stop, ';
+                    }
+                    if(ptsWithinHosp.features.length>0){
+                        resourcesInZip[4]='Hospital';
+                    }
+
+                    e.target.closePopup();
+                    var popupContent = "</br> Zip Code: " + feature.properties.postalCode+
+                "</br> Borough: " + feature.properties.borough+"</br>"+resourcesInZip[0]+""+resourcesInZip[1]+""+resourcesInZip[2]+""+resourcesInZip[3]+""+resourcesInZip[4] + " are available in this zip code.";
+                    e.target.bindPopup(popupContent); 
+                    e.target.openPopup();
+                    //$("#withinData").text(resourcesInZip[0]+", "+resourcesInZip[1]+", "+resourcesInZip[2]+", "+resourcesInZip[3]+", "+resourcesInZip[4] + " are available in this zip code.");
+                
+                },
+                //mouseover: function (e) { e.target.setStyle({ fillColor: "#994400" }) },
+                mouseover: function (e) {e.target.openPopup()},
+                //mouseout: function (e) {e.target.setStyle({ fillColor: "#005999" }) },
+                mouseout: function (e) {e.target.closePopup() }
+                
+            });
+    }
+   
+    function onEachFeatureLib(feature, layer) {
+            var popupContent = "</br> Library Name: " + feature.properties.name;
+            if (feature.properties && feature.properties.popupContent) {
+                popupContent += feature.properties.popupContent;
+            }
+            layer.bindPopup(popupContent);   
+            layer.on({
+                //mouseover: function (e) { e.target.setStyle({ fillColor: "#994400" }) },
+                click: function (e) {
+                    e.target.openPopup();
+                     },
+            });
+    }
+
+    function onEachFeatureBus(feature, layer) {
+            var popupContent = "</br>Bus Stop: " + feature.properties.location +"<br> at " + feature.properties.at_between;
+            if (feature.properties && feature.properties.popupContent) {
+                popupContent += feature.properties.popupContent;
+            }
+            layer.bindPopup(popupContent);   
+            layer.on({
+                //mouseover: function (e) { e.target.setStyle({ fillColor: "#994400" }) },
+                click: function (e) {
+                    e.target.openPopup();
+                     },
+            });
+    }
+
+    function onEachFeatureGroc(feature, layer) {
+            var popupContent = "</br>Grocery Store " + feature.properties.entity;
+            if (feature.properties && feature.properties.popupContent) {
+                popupContent += feature.properties.popupContent;
+            }
+            layer.bindPopup(popupContent);   
+            layer.on({
+                //mouseover: function (e) { e.target.setStyle({ fillColor: "#994400" }) },
+                click: function (e) {
+                    e.target.openPopup();
+                     },
+            });
+    }
+
+    function onEachFeatureHosp(feature, layer) {
+            var popupContent = "</br>Hospital: " + feature.properties.name;
+            if (feature.properties && feature.properties.popupContent) {
+                popupContent += feature.properties.popupContent;
+            }
+            layer.bindPopup(popupContent);   
+            layer.on({
+                //mouseover: function (e) { e.target.setStyle({ fillColor: "#994400" }) },
+                click: function (e) {
+                    e.target.openPopup();
+                     },
+            });
+    }
+
+    function onEachFeatureSub(feature, layer) {
+            var popupContent = "Stop: " + feature.properties.name + "<br> Line: " + feature.properties.line;
+            if (feature.properties && feature.properties.popupContent) {
+                popupContent += feature.properties.popupContent;
+            }
+            layer.bindPopup(popupContent);   
+            layer.on({
+                //mouseover: function (e) { e.target.setStyle({ fillColor: "#994400" }) },
+                click: function (e) {
+                    e.target.openPopup();
+                     },
+            });
+    }
+
+    var geojsonMarkerOptions = {
+        radius: 8,
+        fillColor: "#ff7800",
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+    };
+
+    var libMarker = {
+        radius: 8,
+        fillColor: "blue",
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+    };
+
+    var busMarker = {
+        radius: 8,
+        fillColor: "white",
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+    };
+
+    var subwayMarker = {
+        radius: 8,
+        fillColor: "black",
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+    };
+
+    var groceryMarker = {
+        radius: 8,
+        fillColor: "purple",
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+    };
+
+    var hospitalMarker = {
+        radius: 8,
+        fillColor: "green",
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+    };
+
+
+    var boroughs = L.geoJson(nycZips, {fillColor: "red", color: 'black', weight:0.85, onEachFeature: onEachFeature});
+    var libraries = L.geoJson(nyclibraries, { onEachFeature: onEachFeatureLib,
+        pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng, libMarker);
+        }, });
+
+    var bus = L.geoJson(nycbus, { onEachFeature: onEachFeatureBus,
+        pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng, busMarker);
+        }, });
+    var subway = L.geoJson(nycsubway, { onEachFeature: onEachFeatureSub,
+        pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng, subwayMarker);
+        }, });
+    var grocery = L.geoJson(nycgrocery, { onEachFeature: onEachFeatureGroc,
+        pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng, groceryMarker);
+        }, });
+    var hospital = L.geoJson(nychospital, { onEachFeature: onEachFeatureHosp,
+        pointToLayer: function (feature, latlng) {
+            return L.circleMarker(latlng, hospitalMarker);
+        }, });
+
+
+	var baseLayers = {
+		"Grayscale": grayscale,
+		"Streets": streets
+	};
+
+    var overlays = {
+        "Zip Codes": boroughs,
+        "Bus Stops": bus,
+        "Subway Stops": subway,
+        "Grocery Stores": grocery,
+        "Libraries": libraries,
+        "Hospitals": hospital
+	};
+
+
+	L.control.layers(baseLayers,overlays).addTo(map);
+        
+    var searchControl2 = new L.Control.Search({
+        position:'topright',    
+        layer: boroughs,
+        propertyName: 'postalCode',
+        marker: false,
+        //zoom: 12
+        moveToLocation: function (latlng, title, map) {
+                //map.fitBounds( latlng.layer.getBounds() );
+                var zoom = map.getBoundsZoom(latlng.layer.getBounds());
+                map.setView(latlng, zoom); // access the zoom
+        }
+    });
+
+        var hospLen=nychospital.features.length;
+        var subLen=nycsubway.features.length;
+        var busLen=nycbus.features.length;
+        var libLen=nyclibraries.features.length;
+        var grocLen=nycgrocery.features.length;
+
+
+        var hospPoints=[];
+        var subPoints=[];
+        var busPoints=[];
+        var libPoints=[];
+        var grocPoints=[];
+
+        
+        for(i=0;i<hospLen;i++){
+            hospPoints.push(nychospital.features[i].geometry.coordinates);
+        }
+        for(i=0;i<subLen;i++){
+           subPoints.push(nycsubway.features[i].geometry.coordinates);
+        }
+        for(i=0;i<busLen;i++){
+           busPoints.push(nycbus.features[i].geometry.coordinates);
+        }
+        for(i=0;i<libLen;i++){
+           libPoints.push(nyclibraries.features[i].geometry.coordinates);
+        }
+        for(i=0;i<grocLen;i++){
+            if(nycgrocery.features[i].geometry!=null){
+                grocPoints.push(nycgrocery.features[i].geometry.coordinates);
+            }
+        }
+
+
+    searchControl2.on('search:locationfound', function (e) {
+        boroughs.setStyle({fillColor: "red", color: 'black', weight:0.85, onEachFeature: onEachFeature});             
+        e.layer.setStyle({ fillColor: '#3f0', color: '#0f0' });
+        if (e.layer._popup)
+            e.layer.openPopup();
+        var polyCoords = e.layer.feature.geometry.coordinates;
+        
+        var grocpts = turf.points(grocPoints);
+        var libpts = turf.points(libPoints);
+        var buspts = turf.points(busPoints);
+        var subpts = turf.points(subPoints);
+        var hosppts = turf.points(hospPoints);
+        
+        
+        var searchWithin = turf.polygon(polyCoords);
+        var ptsWithinGroc = turf.pointsWithinPolygon(grocpts, searchWithin);
+        var ptsWithinLib = turf.pointsWithinPolygon(libpts, searchWithin);
+        var ptsWithinBus = turf.pointsWithinPolygon(buspts, searchWithin);
+        var ptsWithinSub = turf.pointsWithinPolygon(subpts, searchWithin);
+        var ptsWithinHosp = turf.pointsWithinPolygon(hosppts, searchWithin);
+
+        var resourcesInZip = ['','','','',''];
+
+        if(ptsWithinGroc.features.length>0){
+            resourcesInZip[0]='Grocery Store, ';
+        }
+        if(ptsWithinLib.features.length>0){
+            resourcesInZip[1]='Library, ';
+        }
+        if(ptsWithinBus.features.length>0){
+            resourcesInZip[2]='Bus Stop, ';
+        }
+        if(ptsWithinSub.features.length>0){
+            resourcesInZip[3]='Subway Stop, ';
+        }
+        if(ptsWithinHosp.features.length>0){
+            resourcesInZip[4]='Hospital';
+        }
+
+        e.layer.closePopup();
+        var popupContent = "</br> Zip Code: " + e.layer.feature.properties.postalCode+
+        "</br> Borough: " + e.layer.feature.properties.borough+"</br>"+resourcesInZip[0]+""+resourcesInZip[1]+""+resourcesInZip[2]+""+resourcesInZip[3]+""+resourcesInZip[4] + " are available in this zip code.";
+        e.layer.bindPopup(popupContent); 
+        e.layer.openPopup(); });
+
+
+    map.addControl(searchControl2);  //inizialize search control
+
+
+
+</script>
+
+<script>
+    var finalZipsLayer = L.geoJSON(false, {onEachFeature: onEachFeature});
+    function displayChoices() {
+        if(map.hasLayer(finalZipsLayer)){
+            finalZipsLayer.clearLayers();
+            map.removeLayer(finalZipsLayer);
+        }
+        var hospitalC = document.getElementById("hospital");
+        var subwayC = document.getElementById("SubwayStation");
+        var busC = document.getElementById("BusStop");
+        var libraryC = document.getElementById("library");
+        var groceryC = document.getElementById("GroceryStore");
+
+        var hospZips = [];
+        var subwayZips =[];
+        var busZips = [];
+        var libraryZips = [];
+        var groceryZips = [];
+
+        var hospLen=nychospital.features.length;
+        var subLen=nycsubway.features.length;
+        var busLen=nycbus.features.length;
+        var libLen=nyclibraries.features.length;
+        var grocLen=nycgrocery.features.length;
+
+
+        var hospPoints=[];
+        var subPoints=[];
+        var busPoints=[];
+        var libPoints=[];
+        var grocPoints=[];
+        //var phNames=[];
+        var zipLength=nycZips.features.length;
+
+        var zipsSoFar =[];
+        
+        for(i=0;i<hospLen;i++){
+            hospPoints.push(nychospital.features[i].geometry.coordinates);
+        }
+        for(i=0;i<subLen;i++){
+           subPoints.push(nycsubway.features[i].geometry.coordinates);
+        }
+        for(i=0;i<busLen;i++){
+           busPoints.push(nycbus.features[i].geometry.coordinates);
+        }
+        for(i=0;i<libLen;i++){
+           libPoints.push(nyclibraries.features[i].geometry.coordinates);
+        }
+        for(i=0;i<grocLen;i++){
+            if(nycgrocery.features[i].geometry!=null){
+                grocPoints.push(nycgrocery.features[i].geometry.coordinates);
+            }
+        }
+
+        document.getElementById("response").innerHTML = ("Zipcodes with the selected resources: ");
+        if(hospitalC.checked==true){
+            //document.getElementById("hosp").innerHTML = ("Hospitals");
+            var hospitalPoints = turf.points(hospPoints);
+            for(i=0;i<zipLength;i++){
+                var searchWithin = turf.polygon(nycZips.features[i].geometry.coordinates);
+                var ptsWithin = turf.pointsWithinPolygon(hospitalPoints, searchWithin);
+                //console.log(ptsWithin);
+                if(ptsWithin.features.length>0){
+                    zipsSoFar.push(nycZips.features[i]);
+                }
+            }
+        }
+        
+        var zipsSoFar2=[];
+        if(subwayC.checked==true){
+            //document.getElementById("sub").innerHTML = ("Subway Stops");
+            var subwayPoints = turf.points(subPoints);
+            if(zipsSoFar.length>0){
+                for(i=0;i<zipsSoFar.length;i++){
+                    var searchWithinSub = turf.polygon(zipsSoFar[i].geometry.coordinates);
+                    var ptsWithinSub = turf.pointsWithinPolygon(subwayPoints, searchWithinSub);
+                    if(ptsWithinSub.features.length>0){
+                        zipsSoFar2.push(zipsSoFar[i]);
+                    }
+                }
+            }
+            else{
+                for(i=0;i<zipLength;i++){
+                    var searchWithinSub = turf.polygon(nycZips.features[i].geometry.coordinates);
+                    var ptsWithinSub = turf.pointsWithinPolygon(subwayPoints, searchWithinSub);
+                    //console.log(ptsWithin);
+                    if(ptsWithinSub.features.length>0){
+                        zipsSoFar2.push(nycZips.features[i]);
+                    }
+                }
+            }
+        }
+        else{
+            zipsSoFar2=zipsSoFar;
+        }
+
+        var zipsSoFar3=[];
+        if(busC.checked==true){
+            //document.getElementById("bus").innerHTML = ("Bus Stops");
+            var busPts = turf.points(busPoints);
+            if(zipsSoFar2.length>0){
+                for(i=0;i<zipsSoFar2.length;i++){
+                    var searchWithinBus = turf.polygon(zipsSoFar2[i].geometry.coordinates);
+                    var ptsWithinBus = turf.pointsWithinPolygon(busPts, searchWithinBus);
+                    if(ptsWithinBus.features.length>0){
+                        zipsSoFar3.push(zipsSoFar2[i]);
+                    }
+                }
+            }
+            else{
+                for(i=0;i<zipLength;i++){
+                    var searchWithinBus = turf.polygon(nycZips.features[i].geometry.coordinates);
+                    var ptsWithinBus = turf.pointsWithinPolygon(busPts, searchWithinBus);
+                    //console.log(ptsWithin);
+                    if(ptsWithinBus.features.length>0){
+                        zipsSoFar3.push(nycZips.features[i]);
+                    }
+                }
+            }
+        }
+        else{
+            zipsSoFar3=zipsSoFar2;
+        }
+
+        var zipsSoFar4=[];
+        if(groceryC.checked==true){
+            //document.getElementById("groc").innerHTML = ("Grocery Stores");
+            var groceryPoints = turf.points(grocPoints);
+            if(zipsSoFar3.length>0){
+                for(i=0;i<zipsSoFar3.length;i++){
+                    var searchWithinG = turf.polygon(zipsSoFar3[i].geometry.coordinates);
+                    var ptsWithinG = turf.pointsWithinPolygon(groceryPoints, searchWithinG);
+                    if(ptsWithinG.features.length>0){
+                        zipsSoFar4.push(zipsSoFar3[i]);
+                    }
+                }
+            }
+            else{
+                for(i=0;i<zipLength;i++){
+                    var searchWithinG = turf.polygon(nycZips.features[i].geometry.coordinates);
+                    var ptsWithinG = turf.pointsWithinPolygon(groceryPoints, searchWithinG);
+                    //console.log(ptsWithin);
+                    if(ptsWithinG.features.length>0){
+                        zipsSoFar4.push(nycZips.features[i]);
+                    }
+                }
+            }
+        }
+        else{
+            zipsSoFar4=zipsSoFar3;
+        }
+
+
+        finalZips=[];
+        if(libraryC.checked==true){
+            //document.getElementById("lib").innerHTML = ("Libraries");
+            var libraryPoints = turf.points(libPoints);
+            if(zipsSoFar4.length>0){
+                for(i=0;i<zipsSoFar4.length;i++){
+                    var searchWithinL = turf.polygon(zipsSoFar4[i].geometry.coordinates);
+                    var ptsWithinL = turf.pointsWithinPolygon(libraryPoints, searchWithinL);
+                    if(ptsWithinL.features.length>0){
+                        finalZips.push(zipsSoFar4[i]);
+
+                    }
+                }
+            }
+            else{
+                for(i=0;i<zipLength;i++){
+                    var searchWithinL = turf.polygon(nycZips.features[i].geometry.coordinates);
+                    var ptsWithinL = turf.pointsWithinPolygon(libraryPoints, searchWithinL);
+                    //console.log(ptsWithin);
+                    if(ptsWithinL.features.length>0){
+                        finalZips.push(nycZips.features[i]);
+                    }
+                }
+            }
+        }
+        else{
+            finalZips=zipsSoFar4;
+        }
+        document.getElementById("response").innerHTML = ("There are "+finalZips.length+" zipcodes with selected resources. Close to view on map.");
+        var myStyle = {
+            "fillColor": "yellow",
+            "fillOpacity": 0.8
+        };
+
+        for(i=0;i<finalZips.length;i++){
+            finalZipsLayer.addData(finalZips[i]);
+        }
+        
+        finalZipsLayer.setStyle(myStyle);
+        finalZipsLayer.addTo(map);
+
+
+    }
+</script>
+
+</html>
